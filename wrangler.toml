@@ -1,9 +1,63 @@
+# Cloudflare Workers Static Assets configuration
+
 name = "zfb-example-json-api"
 main = "./dist/_worker.js"
+
 compatibility_date = "2024-12-01"
+# nodejs_compat is required by the CF adapter bundle at dist/_worker.js,
+# which imports node:async_hooks (AsyncLocalStorage). Without this flag
+# wrangler 4.x refuses to load the worker even when dist/_worker.js exists.
 compatibility_flags = ["nodejs_compat"]
 
+# Top-level fields (MUST stay above the [assets] table — in TOML any key after
+# a table header is scoped into that table; if these sit under [assets] wrangler
+# warns "Unexpected fields found in assets field" and silently ignores them).
+#
+# workers_dev keeps the worker's PUBLIC *.workers.dev subdomain
+# (zfb-example-json-api.takazudo.workers.dev) serving alongside the custom
+# domain declared at the bottom of this file. docs/cloudflare-setup.md still
+# verifies against that host, and preview URLs need it to route: with
+# workers_dev disabled Cloudflare still PRINTS the preview-alias URL at upload
+# time, but the edge rejects requests to it with "error code: 1042" (the
+# workers.dev hostname is private). The matching live setting is the worker's
+# `enabled` subdomain flag, applied by `wrangler deploy`.
+workers_dev = true
+
+# preview_urls enables *.workers.dev version-preview URLs for per-deploy
+# previews. It defaults to MATCH workers_dev, so leaving it implicit is exactly
+# how previews silently vanish the day someone sets workers_dev = false. Set it
+# explicitly. Maps to the worker's `previews_enabled` subdomain flag.
+preview_urls = true
+
+# ---------------------------------------------------------------------------
+# Static asset serving
+#
+# not_found_handling = "404-page" serves dist/404.html for unmatched GETs.
+#
+# run_worker_first = false consults the asset layer before the worker script;
+# the worker only runs when no asset matches. Correct here — /api/items and
+# /api/search are `prerender = false`, so they never exist as files under dist/
+# and every request to them falls through to the worker.
+#
+# .assetsignore mechanism: `zfb build` writes dist/.assetsignore listing
+# _worker.js and _zfb_inner.mjs, so the worker bundle is excluded from the
+# public asset directory rather than served as a downloadable file. That file
+# is generated at build time — it is NOT committed to the repo.
+# ---------------------------------------------------------------------------
 [assets]
 directory = "./dist"
 binding = "ASSETS"
 not_found_handling = "404-page"
+run_worker_first = false
+
+# ---------------------------------------------------------------------------
+# Custom domain routing
+#
+# custom_domain = true has Cloudflare create and manage the DNS record and TLS
+# certificate for this hostname automatically, rather than matching an existing
+# zone route pattern. Creating it requires Zone · Workers Routes · Edit on
+# CLOUDFLARE_API_TOKEN — see docs/cloudflare-setup.md.
+# ---------------------------------------------------------------------------
+[[routes]]
+pattern = "zfb-example-json-api.takazudomodular.com"
+custom_domain = true
