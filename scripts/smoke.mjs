@@ -45,6 +45,13 @@ const SKIP_ERROR_CODES = new Set([
 // misconfiguration. Treated as "not ready yet" for the same reason as DNS.
 const SKIP_TLS_CODE_PATTERN = /^(CERT_|ERR_TLS|ERR_SSL|UNABLE_TO_VERIFY|SELF_SIGNED|DEPTH_ZERO)/;
 
+// A request that connects and then stalls is the other face of "not wired up
+// yet" — while a custom-domain route propagates, the edge can accept the socket
+// and never answer. AbortSignal.timeout() surfaces that as a DOMException with
+// name "TimeoutError" and a NUMERIC `code` (23), so matching on string codes
+// alone silently misses it and the script crashes instead of skipping.
+const SKIP_ERROR_NAMES = new Set(["TimeoutError", "AbortError"]);
+
 const failures = [];
 
 function check(label, ok, detail) {
@@ -59,26 +66,32 @@ function check(label, ok, detail) {
 
 // fetch() wraps the underlying network error in `cause`, sometimes more than
 // one level deep, so the real code is only reachable by walking the chain.
-function errorCodes(error) {
-  const codes = [];
-  for (let current = error; current; current = current.cause) {
-    if (typeof current.code === "string") {
-      codes.push(current.code);
-    }
-  }
-  return codes;
-}
-
 function notReadyReason(error) {
-  for (const code of errorCodes(error)) {
-    if (SKIP_ERROR_CODES.has(code)) {
-      return `the host is not reachable yet (${code})`;
+  for (let current = error; current; current = current.cause) {
+    if (SKIP_ERROR_NAMES.has(current.name)) {
+      return `the host accepted the connection but did not answer within ${REQUEST_TIMEOUT_MS / 1000}s (${current.name})`;
     }
-    if (SKIP_TLS_CODE_PATTERN.test(code)) {
-      return `the TLS certificate is not issued yet (${code})`;
+    if (typeof current.code === "string") {
+      if (SKIP_ERROR_CODES.has(current.code)) {
+        return `the host is not reachable yet (${current.code})`;
+      }
+      if (SKIP_TLS_CODE_PATTERN.test(current.code)) {
+        return `the TLS certificate is not issued yet (${current.code})`;
+      }
     }
   }
   return null;
+}
+
+// Used only when reporting a failure, so the log names the real network error
+// instead of a bare "fetch failed".
+function describeError(error) {
+  const parts = [];
+  for (let current = error; current; current = current.cause) {
+    const code = current.code === undefined ? "" : ` code=${current.code}`;
+    parts.push(`${current.name ?? "Error"}: ${current.message ?? current}${code}`);
+  }
+  return parts.join(" <- ");
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -227,8 +240,19 @@ async function main() {
     throw error;
   }
 
-  await checkItemsApi(baseUrl);
-  await checkSearchApi(baseUrl);
+  // The root already answered, so a network error here is a genuine problem,
+  // not a not-ready state. Record it as a failure rather than letting it
+  // escape as an unhandled rejection with a bare stack trace.
+  for (const [label, run] of [
+    ["/api/items", checkItemsApi],
+    ["/api/search", checkSearchApi],
+  ]) {
+    try {
+      await run(baseUrl);
+    } catch (error) {
+      check(`${label} request completed`, false, describeError(error));
+    }
+  }
 
   if (failures.length > 0) {
     console.error(`\n::error::Smoke test failed with ${failures.length} problem(s) against ${baseUrl}:`);
@@ -241,4 +265,9 @@ async function main() {
   console.log(`\nSmoke test passed against ${baseUrl}.`);
 }
 
-await main();
+try {
+  await main();
+} catch (error) {
+  console.error(`::error::Smoke test errored: ${describeError(error)}`);
+  process.exit(1);
+}
