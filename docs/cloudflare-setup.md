@@ -20,10 +20,13 @@ Otherwise: Cloudflare dashboard → My Profile → API Tokens → Create Custom 
 
 - **Workers Scripts** — Edit
 - **Account Settings** — Read
+- **Workers Routes** — Edit (a **Zone** permission)
 
-and **Account Resources → Include → (your account)**. No Zone permissions — this repo
-deploys to a `*.workers.dev` host, not a custom domain. Copy the token value now; the
-dashboard shows it once.
+and **Account Resources → Include → (your account)** plus **Zone Resources → Include →
+takazudomodular.com**. The Zone permission is required because `wrangler.toml` declares
+a `custom_domain` route for `zfb-example-json-api.takazudomodular.com`; without it the
+worker uploads fine and the deploy then fails creating the route. Copy the token value
+now; the dashboard shows it once.
 
 You also need the account id, on the Cloudflare dashboard's Workers & Pages overview.
 
@@ -63,15 +66,28 @@ pnpm exec wrangler deploy
 
 ## 4. Verify
 
-The Worker lands at <https://zfb-example-json-api.takazudo.workers.dev> (account
-subdomain `takazudo`). Run the same endpoint checks the README lists locally, against
-the deployed host:
+Production serves on <https://zfb-example-json-api.takazudomodular.com>, the
+`custom_domain` route in `wrangler.toml`. The Worker also stays reachable at
+<https://zfb-example-json-api.takazudo.workers.dev> (account subdomain `takazudo`,
+`workers_dev = true`).
+
+The fastest check is the committed smoke test, which the deploy workflow also runs —
+it asserts the static shell plus both JSON endpoints:
 
 ```sh
-curl 'https://zfb-example-json-api.takazudo.workers.dev/api/items?q=review&page=1&per=5'
-curl 'https://zfb-example-json-api.takazudo.workers.dev/api/search?q=onboarding'
-curl -i -X OPTIONS 'https://zfb-example-json-api.takazudo.workers.dev/api/items'
-curl -i -X POST 'https://zfb-example-json-api.takazudo.workers.dev/api/items'
+pnpm smoke
+pnpm smoke https://zfb-example-json-api.takazudo.workers.dev   # or any other host
+```
+
+DNS and the certificate for a freshly attached custom domain take a few minutes; the
+smoke test prints a notice and exits 0 until they are live. Run the same endpoint
+checks the README lists locally against the deployed host for a manual look:
+
+```sh
+curl 'https://zfb-example-json-api.takazudomodular.com/api/items?q=review&page=1&per=5'
+curl 'https://zfb-example-json-api.takazudomodular.com/api/search?q=onboarding'
+curl -i -X OPTIONS 'https://zfb-example-json-api.takazudomodular.com/api/items'
+curl -i -X POST 'https://zfb-example-json-api.takazudomodular.com/api/items'
 ```
 
 Run the search request twice. `indexBuiltAt` should stay stable while the isolate stays
@@ -89,6 +105,11 @@ notice. For this repo it is almost always the missing secret — redo step 2.
 **`Authentication error [code: 10000]`.** The token lacks Workers Scripts: Edit, or its
 Account Resources do not include the account whose id is in `CLOUDFLARE_ACCOUNT_ID`.
 Check both halves match.
+
+**Worker uploads, then the deploy fails on the route.** The token is missing the Zone
+permission **Workers Routes: Edit** on `takazudomodular.com` (step 1), so `wrangler`
+cannot create the `custom_domain` route. The worker itself is already deployed and
+serving on `*.workers.dev` — add the permission to the token and re-run the deploy.
 
 **404 on an API path.** `not_found_handling = "404-page"` sends unresolved asset paths
 to the styled static 404. Deliberate API 404s survive only when they respond with

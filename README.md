@@ -47,7 +47,21 @@ pnpm build
 pnpm exec wrangler deploy
 ```
 
+Production serves on the custom domain
+<https://zfb-example-json-api.takazudomodular.com>, declared as a
+`custom_domain` route in `wrangler.toml` — Cloudflare creates and manages its
+DNS record and TLS certificate. The worker also stays reachable on
+<https://zfb-example-json-api.takazudo.workers.dev> (`workers_dev = true`).
+
 There are no D1, KV, R2, secret, or queue bindings to create.
+
+Verify a deploy against the live domain with the committed smoke test, which
+checks the static shell and both JSON endpoints:
+
+```sh
+pnpm smoke                                    # the custom domain
+pnpm smoke https://zfb-example-json-api.takazudo.workers.dev   # any other host
+```
 
 ## Continuous deployment (GitHub Actions)
 
@@ -60,12 +74,16 @@ This repo ships `.github/workflows/deploy.yml`:
   `pnpm build`. It needs no Cloudflare credentials, so CI is green immediately.
 - **deploy** runs on push to `main` and calls `wrangler deploy`. It self-skips
   until the secrets below are set, so a fresh repo never shows a red deploy.
+- a **smoke step** then runs `pnpm smoke` against
+  <https://zfb-example-json-api.takazudomodular.com>, asserting the static shell
+  and both JSON endpoints. It self-skips with a notice while the domain's DNS
+  and certificate are still propagating, and fails only on a real bad response.
 
 Add these under **Settings → Secrets and variables → Actions**:
 
 | Secret | Value |
 | --- | --- |
-| `CLOUDFLARE_API_TOKEN` | API token with Account · Workers Scripts: Edit |
+| `CLOUDFLARE_API_TOKEN` | API token with Account · Workers Scripts: Edit and Zone · Workers Routes: Edit |
 | `CLOUDFLARE_ACCOUNT_ID` | target Cloudflare account id |
 
 No bindings, secrets, or resource ids to provision.
@@ -78,8 +96,11 @@ these permissions:
 
 - **Workers Scripts** — Edit
 - **Account Settings** — Read
+- **Workers Routes** — Edit (a **Zone** permission, on `takazudomodular.com`)
 
-Set **Account Resources → Include → (your account)**. No Zone permissions are
-needed — this repo deploys to a `*.workers.dev` host, not a custom domain. A
-single token can be shared across all `zfb-example-*` repos if it carries the
-union of every repo's permissions.
+Set **Account Resources → Include → (your account)** and **Zone Resources →
+Include → takazudomodular.com**. The Zone permission is what lets `wrangler
+deploy` create the `custom_domain` route declared in `wrangler.toml`; without
+it the deploy uploads the worker and then fails on the route step. A single
+token can be shared across all `zfb-example-*` repos if it carries the union of
+every repo's permissions.
