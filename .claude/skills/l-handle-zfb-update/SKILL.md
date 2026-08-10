@@ -2,13 +2,13 @@
 name: l-handle-zfb-update
 description: >-
   Update the zfb upstream dependency (the @takazudo/zfb* packages) in this
-  example (json-api) to the latest "next" dist-tag, review what changed upstream
+  example (json-api) to the latest stable release, review what changed upstream
   between versions, and adapt this project's code if a change touches a surface
   it uses. Use when: (1) User says 'update zfb', 'bump zfb', 'zfb update', or
-  'handle zfb update', (2) A new zfb next release is out and this example should
+  'handle zfb update', (2) A new zfb release is out and this example should
   track it.
 user-invocable: true
-argument-hint: "[target-version, e.g. 0.1.0-next.80 — omit to use latest next]"
+argument-hint: "[target-version, e.g. 2.3.0 — omit to use latest]"
 ---
 
 # Handle zfb Update — json-api
@@ -18,8 +18,8 @@ Assets: `/api/items` filters and paginates demo data, `/api/search` builds a laz
 module-scope MiniSearch index, and `/` is a static page with one Preact island
 that fetches both endpoints. It declares no Cloudflare bindings.
 
-Bump every `@takazudo/*` package this repo depends on to the latest `next`
-prerelease (kept in lockstep on one version), review what changed upstream, and
+Bump every `@takazudo/*` package this repo depends on to the latest stable
+release (kept in lockstep on one version), review what changed upstream, and
 adapt this project only where an upstream change touches a surface it actually
 uses.
 
@@ -35,12 +35,14 @@ neither). If either is dirty, stop and ask before touching them.
 
 ```bash
 CURRENT=$(node -p "require('./package.json').dependencies['@takazudo/zfb']")
-TARGET=${1:-$(npm view @takazudo/zfb dist-tags.next)}
+TARGET=${1:-$(npm view @takazudo/zfb dist-tags.latest)}
 ```
 
-- Always resolve the target from the `next` dist-tag, never `latest` — this repo
-  tracks the zfb prerelease line.
-- If `CURRENT` == `TARGET`: report "already at the latest next (<version>)" and STOP.
+- Always resolve the target from the `latest` dist-tag, never `next` — the
+  prerelease line ENDED at `1.1.0-next.1`, a prerelease of the already-released
+  `1.1.0`. The `next` tag is frozen there and now points at an older version than
+  `latest`, so resolving from it silently pins a stale prerelease.
+- If `CURRENT` == `TARGET`: report "already at the latest (<version>)" and STOP.
 - If an explicit target is older than `CURRENT`, that is a downgrade — stop and
   confirm first.
 
