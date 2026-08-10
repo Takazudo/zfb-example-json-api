@@ -51,6 +51,9 @@ There are no D1, KV, R2, secret, or queue bindings to create.
 
 ## Continuous deployment (GitHub Actions)
 
+Setting this up from zero? Follow [docs/cloudflare-setup.md](docs/cloudflare-setup.md)
+for the ordered walkthrough; the rest of this section is the reference.
+
 This repo ships `.github/workflows/deploy.yml`:
 
 - **build** runs on every push and PR — `pnpm install`, `pnpm typecheck`,
