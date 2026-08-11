@@ -14,6 +14,11 @@
 // custom-domain attach. The house rule is that the repo never shows a red
 // deploy before Cloudflare is wired up.
 //
+// SMOKE_REQUIRE_LIVE=1 retires that contract for a domain already known to be
+// serving: every condition that would otherwise skip exits 1 instead. The skip
+// path stays in the code so a newly attached domain still gets its grace
+// window — the flag, not a code change, is what opts a live domain out of it.
+//
 // Everything PAST the connection is a hard failure: once the host answers,
 // a wrong status, content-type, or body shape exits non-zero.
 
@@ -29,6 +34,11 @@ const REQUEST_TIMEOUT_MS = 15_000;
 // roughly a minute before the edge stops serving error pages for the host.
 const CONNECT_ATTEMPTS = 6;
 const CONNECT_RETRY_MS = 10_000;
+
+// Set on the CI smoke step once the custom domain is confirmed live. Every
+// allowance below exists only to tolerate the propagation window, so for a
+// domain that already serves, each one is a bug hiding a real outage.
+const REQUIRE_LIVE = /^(1|true)$/i.test(process.env.SMOKE_REQUIRE_LIVE ?? "");
 
 // Connection-level failures that mean "not wired up yet", not "broken".
 const SKIP_ERROR_CODES = new Set([
@@ -47,6 +57,12 @@ const SKIP_ERROR_CODES = new Set([
 // route is created, so a TLS error minutes after deploy is propagation, not a
 // misconfiguration. Treated as "not ready yet" for the same reason as DNS.
 const SKIP_TLS_CODE_PATTERN = /^(CERT_|ERR_TLS|ERR_SSL|UNABLE_TO_VERIFY|SELF_SIGNED|DEPTH_ZERO)/;
+
+// …with one exception that the pattern above would otherwise swallow via
+// `^CERT_`. A certificate Cloudflare just issued cannot already be expired, so
+// this code can only mean an established domain broke — always a hard failure,
+// even without SMOKE_REQUIRE_LIVE.
+const FATAL_TLS_CODES = new Set(["CERT_HAS_EXPIRED"]);
 
 // A request that connects and then stalls is the other face of "not wired up
 // yet" — while a custom-domain route propagates, the edge can accept the socket
@@ -84,6 +100,9 @@ function notReadyReason(error) {
       return `the host accepted the connection but did not answer within ${REQUEST_TIMEOUT_MS / 1000}s (${current.name})`;
     }
     if (typeof current.code === "string") {
+      if (FATAL_TLS_CODES.has(current.code)) {
+        return null;
+      }
       if (SKIP_ERROR_CODES.has(current.code)) {
         return `the host is not reachable yet (${current.code})`;
       }
@@ -123,16 +142,20 @@ async function request(url) {
 // from the edge for the minute or so after `wrangler deploy` creates a custom
 // domain — the route and certificate exist before they actually work. Only the
 // ROOT probe is this lenient, and only until it succeeds once.
+//
+// SMOKE_REQUIRE_LIVE collapses this to a single attempt — waiting out a window
+// that has already closed would only delay the failure it is meant to report.
 async function requestRootWithRetry(url) {
+  const attempts = REQUIRE_LIVE ? 1 : CONNECT_ATTEMPTS;
   let lastError;
-  for (let attempt = 1; attempt <= CONNECT_ATTEMPTS; attempt += 1) {
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
       const response = await request(url);
       if (response.status < 500) {
         return response;
       }
       lastError = new NotReadyError(`the edge is still answering ${response.status} for this host`);
-      if (attempt < CONNECT_ATTEMPTS) {
+      if (attempt < attempts) {
         console.log(`  ...  edge returned ${response.status}, retrying in ${CONNECT_RETRY_MS / 1000}s`);
       }
     } catch (error) {
@@ -140,11 +163,11 @@ async function requestRootWithRetry(url) {
         throw error;
       }
       lastError = error;
-      if (attempt < CONNECT_ATTEMPTS) {
+      if (attempt < attempts) {
         console.log(`  ...  not reachable yet, retrying in ${CONNECT_RETRY_MS / 1000}s`);
       }
     }
-    if (attempt < CONNECT_ATTEMPTS) {
+    if (attempt < attempts) {
       await sleep(CONNECT_RETRY_MS);
     }
   }
@@ -253,12 +276,21 @@ async function checkSearchApi(baseUrl) {
 
 async function main() {
   const baseUrl = (process.argv[2] ?? process.env.SMOKE_BASE_URL ?? DEFAULT_BASE_URL).replace(/\/+$/, "");
-  console.log(`Smoke testing ${baseUrl}\n`);
+  console.log(`Smoke testing ${baseUrl}`);
+  console.log(
+    REQUIRE_LIVE
+      ? "SMOKE_REQUIRE_LIVE is set — the domain must be serving; nothing is skipped.\n"
+      : "Propagation-window leniency is active — a not-ready domain skips.\n",
+  );
 
   try {
     await checkHomePage(baseUrl);
   } catch (error) {
     const reason = error instanceof NotReadyError ? error.reason : notReadyReason(error);
+    if (reason && REQUIRE_LIVE) {
+      console.error(`::error::Smoke test failed — ${reason}. SMOKE_REQUIRE_LIVE is set, so ${baseUrl} is required to be serving and this is not a propagation window.`);
+      process.exit(1);
+    }
     if (reason) {
       console.log(`::notice::Smoke test skipped — ${reason}. ${baseUrl} is not serving yet; a freshly attached custom domain needs a minute or so before Cloudflare stops returning edge errors. Re-run the workflow to verify.`);
       process.exit(0);
