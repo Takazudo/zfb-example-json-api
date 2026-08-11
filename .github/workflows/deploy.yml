@@ -8,9 +8,11 @@
 #            SELF-SKIPS when
 #              * secrets.CLOUDFLARE_API_TOKEN is unset, or
 #              * wrangler.toml still holds a REPLACE_WITH_* placeholder id.
-#            The smoke step self-skips separately while the domain is still
-#            being wired up (DNS/TLS not ready). So the repo never shows a red
-#            deploy before Cloudflare is wired up.
+#            So the repo never shows a red deploy before Cloudflare is wired up.
+#            The smoke step CAN self-skip while a domain is still being wired
+#            up (DNS/TLS not ready), but this domain is already live, so the
+#            step sets SMOKE_REQUIRE_LIVE=1 and treats every such state as a
+#            failure — an outage must not read as "not ready yet".
 #
 # Enable deploys by adding, in repo Settings -> Secrets and variables -> Actions:
 #   CLOUDFLARE_API_TOKEN   token with Account · Workers Scripts: Edit,
@@ -100,8 +102,11 @@ jobs:
         run: pnpm exec wrangler deploy
       # Confirms the deploy actually landed on the custom domain — including
       # the SSR JSON routes, which only answer correctly if the Worker (not
-      # just the asset layer) is serving that host. Self-skips with a notice
-      # while DNS/TLS for the domain are still propagating.
+      # just the asset layer) is serving that host. The domain is attached and
+      # serving, so SMOKE_REQUIRE_LIVE turns the propagation-window leniency
+      # off: an unreachable host or a 5xx from the edge fails this step.
       - name: Smoke test the custom domain
         if: steps.preflight.outputs.ready == 'true'
+        env:
+          SMOKE_REQUIRE_LIVE: "1"
         run: pnpm smoke
