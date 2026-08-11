@@ -24,8 +24,11 @@ const DEFAULT_BASE_URL = "https://zfb-example-json-api.takazudomodular.com";
 const CONTENT_MARKER = "Searchable JSON endpoints with a hydrated Preact client";
 
 const REQUEST_TIMEOUT_MS = 15_000;
-const CONNECT_ATTEMPTS = 3;
-const CONNECT_RETRY_MS = 5_000;
+// Generous enough to ride out a fresh custom-domain attach: CI runs this
+// seconds after `wrangler deploy` creates the route, and Cloudflare needs
+// roughly a minute before the edge stops serving error pages for the host.
+const CONNECT_ATTEMPTS = 6;
+const CONNECT_RETRY_MS = 10_000;
 
 // Connection-level failures that mean "not wired up yet", not "broken".
 const SKIP_ERROR_CODES = new Set([
@@ -51,6 +54,15 @@ const SKIP_TLS_CODE_PATTERN = /^(CERT_|ERR_TLS|ERR_SSL|UNABLE_TO_VERIFY|SELF_SIG
 // name "TimeoutError" and a NUMERIC `code` (23), so matching on string codes
 // alone silently misses it and the script crashes instead of skipping.
 const SKIP_ERROR_NAMES = new Set(["TimeoutError", "AbortError"]);
+
+// Raised when the host answers but is plainly not serving this site yet.
+class NotReadyError extends Error {
+  constructor(reason) {
+    super(reason);
+    this.name = "NotReadyError";
+    this.reason = reason;
+  }
+}
 
 const failures = [];
 
@@ -103,23 +115,37 @@ async function request(url) {
   });
 }
 
-// Only the FIRST request retries: it decides reachable-vs-not-ready for the
-// whole run. Later requests hit a host that already answered, so a connection
-// failure there is a genuine problem and must not be retried into a skip.
-async function requestWithRetry(url) {
+// Only the FIRST request retries: it decides ready-vs-not-ready for the whole
+// run. Later requests hit a host that already served this site, so a failure
+// there is a genuine problem and must never be retried into a skip.
+//
+// A 5xx counts as not-ready here because Cloudflare serves its own error pages
+// from the edge for the minute or so after `wrangler deploy` creates a custom
+// domain — the route and certificate exist before they actually work. Only the
+// ROOT probe is this lenient, and only until it succeeds once.
+async function requestRootWithRetry(url) {
   let lastError;
   for (let attempt = 1; attempt <= CONNECT_ATTEMPTS; attempt += 1) {
     try {
-      return await request(url);
+      const response = await request(url);
+      if (response.status < 500) {
+        return response;
+      }
+      lastError = new NotReadyError(`the edge is still answering ${response.status} for this host`);
+      if (attempt < CONNECT_ATTEMPTS) {
+        console.log(`  ...  edge returned ${response.status}, retrying in ${CONNECT_RETRY_MS / 1000}s`);
+      }
     } catch (error) {
-      lastError = error;
       if (!notReadyReason(error)) {
         throw error;
       }
+      lastError = error;
       if (attempt < CONNECT_ATTEMPTS) {
         console.log(`  ...  not reachable yet, retrying in ${CONNECT_RETRY_MS / 1000}s`);
-        await sleep(CONNECT_RETRY_MS);
       }
+    }
+    if (attempt < CONNECT_ATTEMPTS) {
+      await sleep(CONNECT_RETRY_MS);
     }
   }
   throw lastError;
@@ -141,7 +167,7 @@ async function readJson(response, label) {
 
 async function checkHomePage(baseUrl) {
   console.log(`GET ${baseUrl}/`);
-  const response = await requestWithRetry(`${baseUrl}/`);
+  const response = await requestRootWithRetry(`${baseUrl}/`);
 
   check("/ responds 200", response.status === 200, `got ${response.status}`);
   check("/ is HTML", contentType(response).includes("text/html"), `content-type: ${contentType(response) || "(none)"}`);
@@ -232,9 +258,9 @@ async function main() {
   try {
     await checkHomePage(baseUrl);
   } catch (error) {
-    const reason = notReadyReason(error);
+    const reason = error instanceof NotReadyError ? error.reason : notReadyReason(error);
     if (reason) {
-      console.log(`::notice::Smoke test skipped — ${reason}. ${baseUrl} is not wired up yet; re-run once the custom domain is attached and its certificate is active.`);
+      console.log(`::notice::Smoke test skipped — ${reason}. ${baseUrl} is not serving yet; a freshly attached custom domain needs a minute or so before Cloudflare stops returning edge errors. Re-run the workflow to verify.`);
       process.exit(0);
     }
     throw error;
