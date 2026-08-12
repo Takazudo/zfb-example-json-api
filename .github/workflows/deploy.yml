@@ -33,7 +33,19 @@ on:
 
 concurrency:
   group: deploy-${{ github.ref }}
-  cancel-in-progress: true
+  # Only PR runs cancel in-progress runs. A mid-flight `wrangler deploy` (or the
+  # post-deploy smoke step) must never be interrupted — that can leave the Worker
+  # half-updated — so push runs never cancel a run that is already going; the next
+  # push waits instead. Note GitHub still supersedes runs that are merely QUEUED,
+  # so with 3+ rapid pushes the intermediate ones are dropped and only the newest
+  # pending run follows the in-flight one. That is intended: the running deploy
+  # finishes, and the newest commit is what deploys next.
+  #
+  # Allow-list (== 'pull_request'), not a deny-list (!= 'push'), on purpose: if a
+  # `workflow_dispatch` trigger is ever added, a manual run on main shares this
+  # group (same github.ref), and the deny-list form would evaluate true and let it
+  # cancel a live deploy — reintroducing the exact bug this guards against.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
