@@ -3,7 +3,7 @@
 name = "zfb-example-json-api"
 main = "./dist/_worker.js"
 
-compatibility_date = "2024-12-01"
+compatibility_date = "2026-05-01"
 # nodejs_compat is required by the CF adapter bundle at dist/_worker.js,
 # which imports node:async_hooks (AsyncLocalStorage). Without this flag
 # wrangler 4.x refuses to load the worker even when dist/_worker.js exists.
