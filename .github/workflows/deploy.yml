@@ -33,7 +33,12 @@ on:
 
 concurrency:
   group: deploy-${{ github.ref }}
-  cancel-in-progress: true
+  # Only PR runs cancel in-progress runs. Push runs to main share the deploy
+  # job's group, and a mid-flight `wrangler deploy` (or the post-deploy smoke
+  # step) must never be cancelled — an interrupted deploy can leave the
+  # Worker in a half-updated state. A second rapid push queues behind the
+  # first instead of killing it.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
