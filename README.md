@@ -80,8 +80,9 @@ This repo ships `.github/workflows/deploy.yml`:
   repo never shows a red deploy.
 - a **smoke step** then runs `pnpm smoke` against
   <https://zfb-example-json-api.takazudomodular.com>, asserting the static shell
-  and both JSON endpoints. It self-skips with a notice while the domain's DNS
-  and certificate are still propagating, and fails only on a real bad response.
+  and both JSON endpoints. CI sets `SMOKE_REQUIRE_LIVE=1` because this domain is
+  already serving, so an unreachable host, TLS failure, or bad response fails
+  the deployment instead of being treated as first-deploy propagation.
 
 Add these under **Settings → Secrets and variables → Actions**:
 

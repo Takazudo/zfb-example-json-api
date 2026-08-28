@@ -44,10 +44,10 @@ concurrency:
   # pending run follows the in-flight one. That is intended: the running deploy
   # finishes, and the newest commit is what deploys next.
   #
-  # Allow-list (== 'pull_request'), not a deny-list (!= 'push'), on purpose: if a
-  # `workflow_dispatch` trigger is ever added, a manual run on main shares this
-  # group (same github.ref), and the deny-list form would evaluate true and let it
-  # cancel a live deploy — reintroducing the exact bug this guards against.
+  # Allow-list (== 'pull_request'), not a deny-list (!= 'push'), on purpose: a
+  # manual run on main shares this group (same github.ref), and the deny-list form
+  # would evaluate true and let it cancel a live deploy — reintroducing the exact
+  # bug this guards against.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:

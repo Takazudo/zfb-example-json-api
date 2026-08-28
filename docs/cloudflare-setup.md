@@ -81,9 +81,11 @@ pnpm smoke
 pnpm smoke https://zfb-example-json-api.takazudo.workers.dev   # or any other host
 ```
 
-DNS and the certificate for a freshly attached custom domain take a few minutes; the
-smoke test prints a notice and exits 0 until they are live. Run the same endpoint
-checks the README lists locally against the deployed host for a manual look:
+DNS and the certificate for a freshly attached custom domain take a few minutes; a
+manual smoke run without `SMOKE_REQUIRE_LIVE` prints a notice and exits 0 until they
+are live. The repository's deploy workflow sets `SMOKE_REQUIRE_LIVE=1` because this
+domain is established, so every unreachable or bad response fails CI. Run the same
+endpoint checks the README lists against the deployed host for a manual look:
 
 ```sh
 curl 'https://zfb-example-json-api.takazudomodular.com/api/items?q=review&page=1&per=5'
