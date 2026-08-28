@@ -29,7 +29,9 @@ Use `pnpm dev` for the static shell and component iteration. Use `pnpm preview` 
 
 ## Endpoint Checks
 
-After `pnpm build`, start a local Worker with `pnpm preview` or `pnpm exec wrangler dev`, then run:
+After `pnpm build`, start a local Worker with `pnpm preview` (port 4321 by default) or
+`pnpm exec wrangler dev` (port 8787 by default). The curls below use Wrangler's
+default; substitute port 4321, or the port printed by the command, when using preview:
 
 ```sh
 curl 'http://localhost:8787/api/items?q=review&page=1&per=5'
@@ -70,10 +72,12 @@ for the ordered walkthrough; the rest of this section is the reference.
 
 This repo ships `.github/workflows/deploy.yml`:
 
-- **build** runs on every push and PR — `pnpm install`, `pnpm typecheck`,
-  `pnpm build`. It needs no Cloudflare credentials, so CI is green immediately.
-- **deploy** runs on push to `main` and calls `wrangler deploy`. It self-skips
-  until the secrets below are set, so a fresh repo never shows a red deploy.
+- **build** runs on every push, PR, and manual workflow dispatch — `pnpm install`,
+  `pnpm typecheck`, `pnpm build`. It needs no Cloudflare credentials, so CI is
+  green immediately.
+- **deploy** runs on push to `main` or a manual workflow dispatch and calls
+  `wrangler deploy`. It self-skips until the secrets below are set, so a fresh
+  repo never shows a red deploy.
 - a **smoke step** then runs `pnpm smoke` against
   <https://zfb-example-json-api.takazudomodular.com>, asserting the static shell
   and both JSON endpoints. It self-skips with a notice while the domain's DNS

@@ -1,9 +1,10 @@
 # Cloudflare setup
 
-This repo is **not deployed yet**. It has no Cloudflare secrets set, and the `deploy`
-job in `.github/workflows/deploy.yml` self-skips until they exist — so CI is green but
-nothing ships. What follows is the from-zero path: do these four steps once and every
-push to `main` deploys.
+This repo is deployed at <https://zfb-example-json-api.takazudomodular.com>. Its
+Cloudflare secrets are configured, so every push to `main` builds, deploys, and smoke-
+tests production; the `Deploy` workflow can also be dispatched manually. Forks and
+fresh clones still self-skip the deploy job until their own secrets are configured.
+What follows is the from-zero path for recreating that setup.
 
 There is nothing to provision first. No D1, KV, R2, queue, or Worker secrets — the
 `wrangler.toml` only declares the static assets binding the adapter wrapper uses. This
@@ -48,9 +49,10 @@ prefer the web UI.
 
 ## 3. Trigger the first deploy
 
-Push anything to `main`, or re-run the latest `Deploy` workflow. The first
-`wrangler deploy` is what **creates** the Worker — you do not create it in the
-dashboard beforehand.
+Push anything to `main`, or manually dispatch the `Deploy` workflow. Both paths build,
+run `wrangler deploy`, and smoke-test production. The command below dispatches the
+workflow from the repository's default branch (`main`). The first `wrangler deploy` is
+what **creates** the Worker — you do not create it in the dashboard beforehand.
 
 ```sh
 gh workflow run deploy.yml --repo Takazudo/zfb-example-json-api
