@@ -1,10 +1,12 @@
 # Cloudflare Workers (static assets) deploy for this zfb example.
 #
-#   build  — always runs (push + PR): install, typecheck (`zfb check`), build
+#   build  — always runs (push + PR + manual dispatch): install, typecheck
+#            (`zfb check`), build
 #            (`zfb build`). This is the L3 build-output gate; it needs no
 #            Cloudflare credentials, so a fresh clone/fork is green immediately.
-#   deploy — push to `main` only: runs `wrangler deploy`, then smoke-tests the
-#            live custom domain (https://zfb-example-json-api.takazudomodular.com).
+#   deploy — pushes to `main` and manual dispatches: runs `wrangler deploy`,
+#            then smoke-tests the live custom domain
+#            (https://zfb-example-json-api.takazudomodular.com).
 #            SELF-SKIPS when
 #              * secrets.CLOUDFLARE_API_TOKEN is unset, or
 #              * wrangler.toml still holds a REPLACE_WITH_* placeholder id.
@@ -26,6 +28,7 @@
 name: Deploy
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
   pull_request:
@@ -41,10 +44,10 @@ concurrency:
   # pending run follows the in-flight one. That is intended: the running deploy
   # finishes, and the newest commit is what deploys next.
   #
-  # Allow-list (== 'pull_request'), not a deny-list (!= 'push'), on purpose: if a
-  # `workflow_dispatch` trigger is ever added, a manual run on main shares this
-  # group (same github.ref), and the deny-list form would evaluate true and let it
-  # cancel a live deploy — reintroducing the exact bug this guards against.
+  # Allow-list (== 'pull_request'), not a deny-list (!= 'push'), on purpose: a
+  # manual run on main shares this group (same github.ref), and the deny-list form
+  # would evaluate true and let it cancel a live deploy — reintroducing the exact
+  # bug this guards against.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -75,7 +78,7 @@ jobs:
   deploy:
     name: Deploy to Cloudflare Workers
     needs: build
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

@@ -1,9 +1,10 @@
 # Cloudflare setup
 
-This repo is **not deployed yet**. It has no Cloudflare secrets set, and the `deploy`
-job in `.github/workflows/deploy.yml` self-skips until they exist — so CI is green but
-nothing ships. What follows is the from-zero path: do these four steps once and every
-push to `main` deploys.
+This repo is deployed at <https://zfb-example-json-api.takazudomodular.com>. Its
+Cloudflare secrets are configured, so every push to `main` builds, deploys, and smoke-
+tests production; the `Deploy` workflow can also be dispatched manually. Forks and
+fresh clones still self-skip the deploy job until their own secrets are configured.
+What follows is the from-zero path for recreating that setup.
 
 There is nothing to provision first. No D1, KV, R2, queue, or Worker secrets — the
 `wrangler.toml` only declares the static assets binding the adapter wrapper uses. This
@@ -48,9 +49,10 @@ prefer the web UI.
 
 ## 3. Trigger the first deploy
 
-Push anything to `main`, or re-run the latest `Deploy` workflow. The first
-`wrangler deploy` is what **creates** the Worker — you do not create it in the
-dashboard beforehand.
+Push anything to `main`, or manually dispatch the `Deploy` workflow. Both paths build,
+run `wrangler deploy`, and smoke-test production. The command below dispatches the
+workflow from the repository's default branch (`main`). The first `wrangler deploy` is
+what **creates** the Worker — you do not create it in the dashboard beforehand.
 
 ```sh
 gh workflow run deploy.yml --repo Takazudo/zfb-example-json-api
@@ -79,9 +81,11 @@ pnpm smoke
 pnpm smoke https://zfb-example-json-api.takazudo.workers.dev   # or any other host
 ```
 
-DNS and the certificate for a freshly attached custom domain take a few minutes; the
-smoke test prints a notice and exits 0 until they are live. Run the same endpoint
-checks the README lists locally against the deployed host for a manual look:
+DNS and the certificate for a freshly attached custom domain take a few minutes; a
+manual smoke run without `SMOKE_REQUIRE_LIVE` prints a notice and exits 0 until they
+are live. The repository's deploy workflow sets `SMOKE_REQUIRE_LIVE=1` because this
+domain is established, so every unreachable or bad response fails CI. Run the same
+endpoint checks the README lists against the deployed host for a manual look:
 
 ```sh
 curl 'https://zfb-example-json-api.takazudomodular.com/api/items?q=review&page=1&per=5'
