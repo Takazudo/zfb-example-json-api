@@ -14,7 +14,15 @@ This example is a compact SSR/API starter for zfb on Cloudflare Workers Static A
 
 - `/api/items` filters the demo data with `q` and paginates with `page` and `per`.
 - `/api/search` builds a module-scope MiniSearch index lazily and returns `indexBuiltAt` plus `indexBuildCount`, so repeated warm-isolate requests can observe index reuse.
-- `/` is a static page with one Preact island that fetches both JSON endpoints.
+- `/` is a static page with one [zudo-react](https://github.com/Takazudo/zudo-front-builder) island (`components/item-browser.tsx`) that fetches both JSON endpoints.
+
+## zfb 3 Notes
+
+This example runs on zfb 3 (`@takazudo/zfb`, `@takazudo/zfb-runtime` and `@takazudo/zfb-adapter-cloudflare` pinned to the same exact version).
+
+- JSX compiles against the owned runtime (`jsxImportSource: "@takazudo/zfb/zudo-react"`) with HTML attribute spellings (`class`, `charset`) and native `on:event` listeners.
+- The island's setup runs once. State lives in signals; `computed` drives the metrics, page label, disabled buttons and `aria-busy`; `For` renders the keyed result lists, and each card reads its fields through the item signal so a same-key replacement updates in place. The load effect reads `query`, `page` and the refresh token before starting the two fetches, aborts the previous request when it reruns, and ignores late responses.
+- All styling is authored CSS in `styles/global.css`. `wind` supplies only the `owned-v1` reset (the 2.x Tailwind import used to supply preflight); no utility classes are used. `wind.authoredClasses` reserves `item-card__meta` and `text-link`, which wind would otherwise validate as utilities.
 
 ## Run Locally
 
