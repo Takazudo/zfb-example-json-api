@@ -26,7 +26,7 @@ const DEFAULT_BASE_URL = "https://zfb-example-json-api.takazudomodular.com";
 
 // Unique to this site's home page (pages/index.tsx <h1>) — a generic marker
 // would also match the styled 404 page or another example site.
-const CONTENT_MARKER = "Searchable JSON endpoints with a hydrated Preact client";
+const CONTENT_MARKER = "Searchable JSON endpoints with a hydrated zudo-react client";
 
 const REQUEST_TIMEOUT_MS = 15_000;
 // Generous enough to ride out a fresh custom-domain attach: CI runs this

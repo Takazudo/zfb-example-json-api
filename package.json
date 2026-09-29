@@ -12,16 +12,13 @@
     "smoke": "node scripts/smoke.mjs"
   },
   "dependencies": {
-    "@takazudo/zfb": "2.15.0",
-    "@takazudo/zfb-adapter-cloudflare": "2.15.0",
-    "@takazudo/zfb-runtime": "2.15.0",
-    "minisearch": "^7.2.0",
-    "preact": "^10.29.0",
-    "preact-render-to-string": "^6.6.7"
+    "@takazudo/zfb": "3.0.0",
+    "@takazudo/zfb-adapter-cloudflare": "3.0.0",
+    "@takazudo/zfb-runtime": "3.0.0",
+    "minisearch": "^7.2.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
-    "tailwindcss": "4.2.4",
     "typescript": "^5.9.0",
     "wrangler": "4.127.0"
   },

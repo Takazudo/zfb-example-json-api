@@ -8,7 +8,7 @@ export default function HomePage() {
     <DefaultLayout>
       <section class="page-heading">
         <p class="eyebrow">Cloudflare Worker SSR</p>
-        <h1>Searchable JSON endpoints with a hydrated Preact client</h1>
+        <h1>Searchable JSON endpoints with a hydrated zudo-react client</h1>
         <p>
           The static shell ships first. The island below calls the SSR API routes for filtered
           pagination and MiniSearch ranking.

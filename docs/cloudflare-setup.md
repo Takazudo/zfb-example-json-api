@@ -97,7 +97,7 @@ curl -i -X POST 'https://zfb-example-json-api.takazudomodular.com/api/items'
 Run the search request twice. `indexBuiltAt` should stay stable while the isolate stays
 warm, and `indexBuildCount` should not climb.
 
-Also load `/` in a browser — the Preact island there fetches both JSON endpoints, so a
+Also load `/` in a browser — the zudo-react island there fetches both JSON endpoints, so a
 rendered list confirms the static assets and the SSR path both work.
 
 ## Troubleshooting
