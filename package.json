@@ -12,9 +12,9 @@
     "smoke": "node scripts/smoke.mjs"
   },
   "dependencies": {
-    "@takazudo/zfb": "4.3.0",
-    "@takazudo/zfb-adapter-cloudflare": "4.3.0",
-    "@takazudo/zfb-runtime": "4.3.0",
+    "@takazudo/zfb": "4.4.0",
+    "@takazudo/zfb-adapter-cloudflare": "4.4.0",
+    "@takazudo/zfb-runtime": "4.4.0",
     "minisearch": "^7.2.0"
   },
   "devDependencies": {
