@@ -16,9 +16,9 @@ This example is a compact SSR/API starter for zfb on Cloudflare Workers Static A
 - `/api/search` builds a module-scope MiniSearch index lazily and returns `indexBuiltAt` plus `indexBuildCount`, so repeated warm-isolate requests can observe index reuse.
 - `/` is a static page with one [zudo-react](https://github.com/Takazudo/zudo-front-builder) island (`components/item-browser.tsx`) that fetches both JSON endpoints.
 
-## zfb 3 Notes
+## zfb 6 Notes
 
-This example runs on zfb 3 (`@takazudo/zfb`, `@takazudo/zfb-runtime` and `@takazudo/zfb-adapter-cloudflare` pinned to the same exact version).
+This example runs on zfb 6 (`@takazudo/zfb`, `@takazudo/zfb-runtime` and `@takazudo/zfb-adapter-cloudflare` pinned to the same exact version). zfb 5+ requires Node.js 24 (`engines.node` `>=24.0.0`); install and build on Node.js 24 or newer.
 
 - JSX compiles against the owned runtime (`jsxImportSource: "@takazudo/zfb/zudo-react"`) with HTML attribute spellings (`class`, `charset`) and native `on:event` listeners.
 - The island's setup runs once. State lives in signals; `computed` drives the metrics, page label, disabled buttons and `aria-busy`; `For` renders the keyed result lists, and each card reads its fields through the item signal so a same-key replacement updates in place. The load effect reads `query`, `page` and the refresh token before starting the two fetches, aborts the previous request when it reruns, and ignores late responses.
