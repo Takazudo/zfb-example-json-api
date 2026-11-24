@@ -39,10 +39,11 @@ preview_urls = true
 # /api/search are `prerender = false`, so they never exist as files under dist/
 # and every request to them falls through to the worker.
 #
-# .assetsignore mechanism: `zfb build` writes dist/.assetsignore listing
-# _worker.js and _zfb_inner.mjs, so the worker bundle is excluded from the
-# public asset directory rather than served as a downloadable file. That file
-# is generated at build time — it is NOT committed to the repo.
+# .assetsignore mechanism: `zfb build` writes dist/.assetsignore with a final
+# block of root-anchored rules (`/_worker.js`, `/_zfb_inner.mjs`), so the
+# worker bundle is excluded from the public asset directory rather than
+# served as a downloadable file. That file is generated at build time — it
+# is NOT committed to the repo.
 # ---------------------------------------------------------------------------
 [assets]
 directory = "./dist"
